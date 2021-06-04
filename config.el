@@ -23,18 +23,19 @@
 ;;       doom-variable-pitch-font (font-spec :family "sans" :size 13))
 
 ;;(setq doom-font (font-spec :family "InputC4Mono Nerd Font" :size 16 :weight 'regular))
-(setq doom-font "FiraCode Nerd Font 14")
+(setq doom-font "FiraCode Nerd Font:pixelsize=25")
 ;;(setq doom-font "InputC4Mono Nerd Font 15")
 ;;(setq doom-big-font (font-spec :family "InputC3Mono Nerd Font" :size 18 :weight 'regular))
-(setq doom-big-font "FiraCode Nerd Font 18")
-(setq doom-variable-pitch-font "PT Sans 16")
+(setq doom-big-font "FiraCode Nerd Font:pixelsize=30")
+(setq doom-variable-pitch-font "Lato 15")
 ;;(set-frame-font doom-font)
-;;(set-frame-font "FiraCode Nerd Font 13")
+;;(set-frame-font "FiraCode Nerd Font:weight=medium:pixelsize=25")
 ;;(set-frame-font "FiraCode Nerd Font 14")
 ;;(set-frame-font "FiraCode Nerd Font 15")
 ;;(set-frame-font "FiraCode Nerd Font 16")
 ;;(set-frame-font "FiraCode Nerd Font 17")
 ;;(set-frame-font "FiraCode Nerd Font 18")
+;;(set-frame-font "FiraCode Nerd Font 19")
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
@@ -183,7 +184,7 @@
   ("C-x C-k"      'kill-region)
   ("M-q"          'indent-sexp)
   ("C-M-k"        'kill-sexp)
-  ("C-M-w"        'split-window-horizontally)
+  ("C-M-w"        'split-window-auto)
   ;;("C-M-s"        'split-window-auto)
   ("C-M-f"        'toggle-frame-fullscreen)
   ("C-c ;"        'comment-or-uncomment-region)
@@ -191,8 +192,7 @@
   ;;("s-/"          'hippie-expand)
   ("C-x \\"       '--align-regexp)
   ("C-\\"         '--align-regexp)
-  ("C-M-<tab>"    '+workspace/switch-to)
-  )
+  ("C-M-<tab>"    '+workspace/switch-to))
 
 (defvar mac-command-modifier)
 (defvar mac-option-modifier)
@@ -484,6 +484,7 @@ interactively for spacing value."
   (setq swiper-action-recenter t)
   (define-map-keys global-map
     ("C-s" 'swiper)
+    ("C-r" 'swiper)
     ("C-S-S" 'swiper-all)))
 
 (use-package! ligature
@@ -533,14 +534,16 @@ interactively for spacing value."
 (when (graphical?)
   (add-hook! 'after-init-hook '--describe-init))
 
+(setq-default flycheck-disabled-checkers
+              '(clojure-cider-typed
+                clojure-cider-kibit
+                clojure-cider-eastwood
+                emacs-lisp-checkdoc))
+
 (after! flycheck
   (setq flycheck-global-modes '(not org-mode js-mode)
         ;; '(clojure-mode clojurec-mode clojurescript-mode groovy-mode)
-        flycheck-disabled-checkers '(clojure-cider-typed
-                                     clojure-cider-kibit
-                                     clojure-cider-eastwood
-                                     emacs-lisp-checkdoc)
-        ;; because git-gutter is in the left fringe
+        ;; git-gutter is in the left fringe
         flycheck-indication-mode 'right-fringe)
   (define-map-keys flycheck-mode-map
     ("C-c ." 'flycheck-next-error)
@@ -905,7 +908,7 @@ interactively for spacing value."
 (transient-mark-mode t)
 (delete-selection-mode t)
 
-(windmove-default-keybindings '(shift))
+;;(windmove-default-keybindings '(shift))
 (windmove-default-keybindings '(control meta))
 
 ;; ITERM2 MOUSE SUPPORT
@@ -1270,6 +1273,34 @@ interactively for spacing value."
   (with-delay 0.1 (garbage-collect))
   (with-delay 0.25 (sysrev))
   (with-delay 2.5 (--cider-quit-all)))
+
+(defun --cider-repl-p (b)
+  (eql 'cider-repl-mode (with-current-buffer b major-mode)))
+
+(defun --cider-repl-cljs-p (b)
+  (and (--cider-repl-p b)
+       (not (null (string-match ".*cljs.*" (buffer-name b))))))
+
+(defun --cider-repl-buffers ()
+  (cl-remove-if-not '--cider-repl-p (buffer-list)))
+
+(defun --cider-next-repl (current-repl)
+  (->> (--cider-repl-buffers)
+    (cl-remove-if (lambda (b) (equal (buffer-name b)
+                                     (buffer-name current-repl))))
+    (car)))
+
+(defun --cider-goto-repl ()
+  (interactive)
+  (cond ((--cider-repl-p (current-buffer))
+         (when-let ((b (--cider-next-repl (current-buffer))))
+           (switch-to-buffer b)))
+        (t
+         (when-let ((b (--cider-next-repl (current-buffer))))
+           (switch-to-buffer-other-window b)))))
+
+(define-map-keys global-map
+  ("C-M-r" '--cider-goto-repl))
 
 (setq doom-modeline-buffer-file-name-style 'auto)
 
